@@ -3,8 +3,7 @@ import numpy as np
 
 
 class ImageAligner:
-    def __init__(self, method='ecc', max_iterations=5000, epsilon=1e-10):
-        self.method = method.lower()
+    def __init__(self, max_iterations=5000, epsilon=1e-10):
         self.max_iterations = max_iterations
         self.epsilon = epsilon
 
@@ -14,31 +13,46 @@ class ImageAligner:
 
         aligned_images = [images[0].copy()]
         reference_gray = cv2.cvtColor(images[0], cv2.COLOR_BGR2GRAY)
+        all_aligned = True
 
         for i in range(1, len(images)):
             img_gray = cv2.cvtColor(images[i], cv2.COLOR_BGR2GRAY)
-            
-            if self.method == 'ecc':
-                aligned, success = self._align_ecc(reference_gray, img_gray, images[i])
-            elif self.method == 'feature':
-                aligned, success = self._align_feature(reference_gray, img_gray, images[i])
-            else:
-                raise ValueError(f"Unknown alignment method: {self.method}")
+
+            aligned, success = self._align_with_fallback(
+                reference_gray, img_gray, images[i], image_index=i+1
+            )
 
             if not success:
-                print(f"警告: 第 {i+1} 张图像对齐失败，跳过该图组")
-                return None, False
+                print(f"警告: 第 {i+1} 张图像对齐失败，将使用原始图像")
+                aligned_images.append(images[i].copy())
+                all_aligned = False
+            else:
+                aligned_images.append(aligned)
 
-            aligned_images.append(aligned)
+        if not all_aligned:
+            print("警告: 部分图像对齐失败，已使用原始图像进行融合")
 
         return aligned_images, True
+
+    def _align_with_fallback(self, reference_gray, img_gray, img_color, image_index):
+        aligned, success = self._align_ecc(reference_gray, img_gray, img_color)
+
+        if not success:
+            print(f"第 {image_index} 张图像 ECC 对齐失败，尝试特征点对齐...")
+            aligned, success = self._align_feature(reference_gray, img_gray, img_color)
+
+            if not success:
+                print(f"第 {image_index} 张图像特征点对齐也失败")
+                return None, False
+
+        return aligned, True
 
     def _align_ecc(self, reference_gray, img_gray, img_color):
         try:
             h, w = reference_gray.shape
             warp_matrix = np.eye(2, 3, dtype=np.float32)
 
-            criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 
+            criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
                         self.max_iterations, self.epsilon)
 
             warp_matrix, _ = cv2.findTransformECC(

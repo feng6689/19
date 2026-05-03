@@ -36,15 +36,9 @@ def main():
         print("错误: 需要至少2张图像进行处理")
         return
 
-    print("\n[2/5] 图像对齐 (使用 ECC 方法)...")
-    aligner = ImageAligner(method='ecc')
+    print("\n[2/5] 图像对齐 (先尝试 ECC，失败则使用特征点对齐)...")
+    aligner = ImageAligner()
     aligned_images, success = aligner.align_images(images)
-    
-    if not success:
-        print("错误: 图像对齐失败，程序退出")
-        return
-    
-    print("图像对齐成功!")
 
     print("\n[3/5] 执行多曝光融合...")
     
