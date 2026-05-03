@@ -21,9 +21,10 @@ class FusionMethods:
 
         float_images = [img.astype(np.float32) / 255.0 for img in images]
         weights = FusionMethods._calculate_weights(float_images, exposure_times)
+
         weight_sum = np.sum(weights, axis=0)
         weight_sum[weight_sum == 0] = 1e-10
-        weights = weights / weight_sum[np.newaxis, :, :, np.newaxis]
+        weights = weights / weight_sum
 
         gaussian_pyramids = []
         laplacian_pyramids = []
@@ -53,11 +54,10 @@ class FusionMethods:
     def _calculate_weights(images, exposure_times=None):
         weights = []
         for i, img in enumerate(images):
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
 
             contrast = cv2.Laplacian(gray, cv2.CV_32F, ksize=5)
-            contrast = cv2.convertScaleAbs(contrast)
-            contrast = contrast.astype(np.float32) / 255.0
+            contrast = np.abs(contrast)
             contrast = cv2.GaussianBlur(contrast, (5, 5), 0)
 
             saturation = np.std(img, axis=2)
@@ -71,7 +71,6 @@ class FusionMethods:
 
             weight = (contrast + 0.5) * (saturation + 0.5) * (well_exposed + 0.5)
             weight = weight[:, :, np.newaxis]
-            weight = np.repeat(weight, 3, axis=2)
             weight += 1e-10
             weights.append(weight)
 

@@ -55,10 +55,20 @@ class ImageAligner:
             criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
                         self.max_iterations, self.epsilon)
 
-            warp_matrix, _ = cv2.findTransformECC(
+            result = cv2.findTransformECC(
                 reference_gray, img_gray, warp_matrix,
                 cv2.MOTION_AFFINE, criteria, None, 5
             )
+
+            if isinstance(result, tuple):
+                warp_matrix = result[0]
+            else:
+                warp_matrix = result
+
+            if warp_matrix is None:
+                return None, False
+
+            warp_matrix = np.array(warp_matrix, dtype=np.float32)
 
             aligned = cv2.warpAffine(img_color, warp_matrix, (w, h),
                                       flags=cv2.INTER_CUBIC + cv2.WARP_INVERSE_MAP)
@@ -66,6 +76,9 @@ class ImageAligner:
             return aligned, True
         except cv2.error as e:
             print(f"ECC对齐错误: {e}")
+            return None, False
+        except Exception as e:
+            print(f"ECC对齐未知错误: {e}")
             return None, False
 
     def _align_feature(self, reference_gray, img_gray, img_color):
